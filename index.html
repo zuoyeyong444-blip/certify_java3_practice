@@ -57,19 +57,20 @@ const sh=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+
 const ld=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}};
 const sv=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 const mmss=s=>Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
-let S=ld(K,null),V="home",T0=Date.now(),tick=null,RS=false;
+let RV=null,S=ld(K,null),V="home",T0=Date.now(),tick=null,RS=false;
 if(S&&!S.ids.every(i=>B[i]))S=null;
 const el=()=>Math.round((S.acc+Date.now()-T0)/1000);
 const save=()=>{S.acc=el()*1000;T0=Date.now();sv(K,S)};
-const ok=id=>S.ans[id]===B[id].answer;
+const X=()=>RV||S,ok=id=>X().ans[id]===B[id].answer;
 
 function start(){
+  RV=null;
   const ids=[];for(let t=1;t<=6;t++)ids.push(...sh(D.filter(q=>q.theme===t)).slice(0,N).map(q=>q.id));
   const perm={};ids.forEach(id=>{const n=B[id].choices.length;perm[id]=B[id].type==="tf"?[0,1]:sh([...Array(n).keys()])});
   S={ids,perm,ans:{},i:0,acc:0,done:false};T0=Date.now();sv(K,S);V="quiz";render();
 }
 function body(id,live){
-  const q=B[id],p=S.perm[id],a=S.ans[id],done=a!==undefined;
+  const q=B[id],p=X().perm[id],a=X().ans[id],done=a!==undefined;
   let h=`<p class="q">${fm(q.q)}</p>`;
   if(q.code)h+=`<pre><code>${esc(q.code)}</code></pre>`;
   p.forEach((o,k)=>{
@@ -85,14 +86,22 @@ function body(id,live){
 function home(){
   const hist=ld(H,[]);
   let h=`<h1>Java 3級ドリル</h1><p class="mut">42問(6分野×7問)を、問題バンクからランダムに出題します。1問ごとに答え合わせと解説(日本語・英語)を確認できます。</p>`;
-  if(S&&!S.done)h+=`<p>前回の続き:${S.i+1}問目まで進んでいます。</p><button class="btn" data-a="resume">続きから</button><button class="btn sub" data-a="new">新しく始める</button>`;
-  else h+=`<button class="btn" data-a="new">42問スタート</button>`+(S&&S.done?`<button class="btn sub" data-a="result">前回の結果を見る</button>`:"");
+  const hb=hist.length?`<button class="btn sub" data-a="hist">前回までの結果を見る</button>`:"";
+  if(S&&!S.done)h+=`<p>前回の続き:${S.i+1}問目まで進んでいます。</p><button class="btn" data-a="resume">続きから</button><button class="btn sub" data-a="new">新しく始める</button>`+hb;
+  else h+=`<button class="btn" data-a="new">42問スタート</button>`+hb;
   h+=`<p class="mut">目安時間は${GOAL/60}分(1問約1.5分)。進み具合は、この端末のブラウザに保存されます。</p>`;
-  if(hist.length)h+=`<h2>これまでの結果</h2><table><tr><th>日付</th><th>得点</th><th>時間</th></tr>${hist.map(r=>`<tr><td>${esc(r.d)}</td><td>${r.s} / ${r.n}(${Math.round(r.s/r.n*100)}%)</td><td>${mmss(r.t)}</td></tr>`).join("")}</table>`;
-  h+=`<div class="zone"><h2 style="margin-top:0">データのリセット</h2><p class="mut">このドリルがブラウザに保存した「途中経過・前回の結果・これまでの結果」をすべて消します。他のサイトのデータや、ブラウザ全体の履歴には影響しません。</p>`+
+  if(hist.length)h+=`<h2>直近の結果</h2><table><tr><th>日付</th><th>得点</th><th>時間</th></tr>${hist.slice(0,5).map(r=>`<tr><td>${esc(r.d)}</td><td>${r.s} / ${r.n}(${Math.round(r.s/r.n*100)}%)</td><td>${mmss(r.t)}</td></tr>`).join("")}</table>`+(hist.length>5?`<p class="mut">ほか${hist.length-5}件。「前回までの結果を見る」から、すべての結果を確認できます。</p>`:"");
+  h+=`<div class="zone"><h2 style="margin-top:0">データのリセット</h2><p class="mut">このドリルがブラウザに保存した「途中経過・これまでのすべての結果(履歴)」をすべて消します。他のサイトのデータや、ブラウザ全体の履歴には影響しません。</p>`+
     (RS?`<p class="vd ng">本当にリセットしますか?元に戻せません。</p><button class="btn dng" data-a="resetgo">リセットする</button><button class="btn sub" data-a="resetno">やめる</button>`
        :`<button class="btn sub dng" data-a="resetask">ブラウザの保存データをリセット</button>`)+`</div>`;
   return h;
+}
+function hist(){
+  const L=ld(H,[]);
+  return `<h1>これまでの結果</h1><p class="mut">全${L.length}件(新しい順)。「詳細」を押すと、その回の問題・解答・解説を見直せます。</p>
+  <p><button class="btn sub" data-a="home">ホームへ</button></p>
+  <table><tr><th>日付</th><th>得点</th><th>時間</th><th></th></tr>${L.map((r,i)=>`<tr><td>${esc(r.d)}</td><td>${r.s} / ${r.n}(${Math.round(r.s/r.n*100)}%)</td><td>${mmss(r.t)}</td><td>${r.sn&&r.sn.ids.every(id=>B[id])?`<button class="btn sub" style="padding:3px 12px;margin:0" data-a="view" data-v="${i}">詳細</button>`:`<span class="mut">―</span>`}</td></tr>`).join("")}</table>
+  <p class="mut">「―」は、詳細を保存する前の古い記録(または問題が差し替わった記録)で、得点のみ表示しています。</p>`;
 }
 function quiz(){
   const id=S.ids[S.i],q=B[id],last=S.i===S.ids.length-1,done=S.ans[id]!==undefined;
@@ -101,22 +110,22 @@ function quiz(){
   ${done?`<button class="btn" data-a="next">${last?"結果を見る":"次の問題"}</button>`:""}`;
 }
 function result(){
-  const n=S.ids.length,s=S.ids.filter(ok).length,pct=Math.round(s/n*100),need=Math.ceil(n*.6);
+  const n=X().ids.length,s=X().ids.filter(ok).length,pct=Math.round(s/n*100),need=Math.ceil(n*.6);
   const th={},tg={};
-  S.ids.forEach(id=>{const q=B[id],r=ok(id)?1:0;(th[q.theme]=th[q.theme]||[0,0]);th[q.theme][0]+=r;th[q.theme][1]++;(tg[q.tag]=tg[q.tag]||[0,0]);tg[q.tag][0]+=r;tg[q.tag][1]++});
+  X().ids.forEach(id=>{const q=B[id],r=ok(id)?1:0;(th[q.theme]=th[q.theme]||[0,0]);th[q.theme][0]+=r;th[q.theme][1]++;(tg[q.tag]=tg[q.tag]||[0,0]);tg[q.tag][0]+=r;tg[q.tag][1]++});
   const weak=Object.entries(tg).filter(e=>e[1][0]<e[1][1]).sort((a,b)=>a[1][0]/a[1][1]-b[1][0]/b[1][1]||b[1][1]-a[1][1]).slice(0,6);
-  const wrong=S.ids.filter(id=>!ok(id));
-  return `<h1>結果</h1><p class="big">${s} / ${n}<span class="mut" style="font-size:1rem">　${pct}%　所要 ${mmss(S.acc/1000)}</span></p>
+  const wrong=X().ids.filter(id=>!ok(id));
+  return `<h1>結果</h1>${RV?`<p class="mut" style="margin:0">${esc(RV.d)}</p>`:""}<p class="big">${s} / ${n}<span class="mut" style="font-size:1rem">　${pct}%　所要 ${mmss(X().acc/1000)}</span></p>
   <p class="mut">本番の合格基準は得点率60%です。この回では${need}問以上が目安です。${s>=need?"到達しています。":"あと"+(need-s)+"問です。"}</p>
   <h2>分野別</h2><div class="g">${Object.keys(th).map(t=>`<span>${TN[t]}</span><div class="bar"><i style="width:${th[t][0]/th[t][1]*100}%"></i></div><span>${th[t][0]}/${th[t][1]}</span>`).join("")}</div>
   <h2>見直したい項目</h2>${weak.length?`<table>${weak.map(e=>`<tr><td>${esc(e[0])}</td><td>${e[1][0]} / ${e[1][1]}</td></tr>`).join("")}</table>`:`<p class="mut">全問正解です。</p>`}
   <h2>間違えた問題(${wrong.length})</h2>${wrong.map(id=>`<details><summary>大問${B[id].theme} ${esc(B[id].tag)}:${esc(B[id].q.replace(/[`\n]/g," ").slice(0,34))}…</summary>${body(id)}</details>`).join("")||`<p class="mut">ありません。</p>`}
   <h2>結果のダウンロード</h2><p class="mut">問題・選択肢・あなたの解答・正解・解説(日本語/英語)を全${n}問ぶん保存します。</p>
   <p><button class="btn sub" data-a="dltxt">テキスト(.txt)</button><button class="btn sub" data-a="dlcsv">CSV(.csv・Excel用)</button></p>
-  <p><button class="btn" data-a="new">新しい42問に挑戦</button><button class="btn sub" data-a="home">ホームへ</button></p>`;
+  <p>${RV?`<button class="btn" data-a="hist">結果一覧へ戻る</button>`:`<button class="btn" data-a="new">新しい42問に挑戦</button>`}<button class="btn sub" data-a="home">ホームへ</button></p>`;
 }
 function render(){
-  $("#app").innerHTML=V==="quiz"?quiz():V==="result"?result():home();
+  $("#app").innerHTML=V==="quiz"?quiz():V==="result"?result():V==="hist"?hist():home();
   clearInterval(tick);
   if(V==="quiz"){const f=()=>{const e=$("#tm");if(e)e.textContent="経過 "+mmss(el())+" / 目安 "+mmss(GOAL)};f();tick=setInterval(f,1000)}
   window.scrollTo(0,0);
@@ -124,8 +133,8 @@ function render(){
 const stamp=()=>{const d=new Date(),p=n=>String(n).padStart(2,"0");return ""+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"-"+p(d.getHours())+p(d.getMinutes())};
 const plain=s=>String(s==null?"":s).replace(/`/g,"");
 function rows(){
-  return S.ids.map((id,i)=>{
-    const q=B[id],p=S.perm[id],a=S.ans[id],ch=p.map(o=>plain(q.choices[o]));
+  return X().ids.map((id,i)=>{
+    const q=B[id],p=X().perm[id],a=X().ans[id],ch=p.map(o=>plain(q.choices[o]));
     const mine=a===undefined?-1:p.indexOf(a),right=p.indexOf(q.answer);
     return {no:i+1,theme:q.theme,tn:TN[q.theme],ty:TY[q.type],tag:q.tag,q:plain(q.q),code:q.code||"",ch,
       mine:mine<0?"未回答":LB[mine],mineT:mine<0?"":ch[mine],right:LB[right],rightT:ch[right],
@@ -134,7 +143,7 @@ function rows(){
 }
 function buildTxt(){
   const R=rows(),n=R.length,s=R.filter(r=>r.res==="正解").length;
-  let t=["Java 3級ドリル 結果","日時: "+new Date().toLocaleString("ja-JP"),"得点: "+s+" / "+n+"("+Math.round(s/n*100)+"%)","所要時間: "+mmss(S.acc/1000),"",
+  let t=["Java 3級ドリル 結果","日時: "+new Date(X().at||Date.now()).toLocaleString("ja-JP"),"得点: "+s+" / "+n+"("+Math.round(s/n*100)+"%)","所要時間: "+mmss(X().acc/1000),"",
     "【分野別】"];
   for(let k=1;k<=6;k++){const r=R.filter(x=>x.theme===k);if(r.length)t.push(TN[k]+": "+r.filter(x=>x.res==="正解").length+" / "+r.length)}
   t.push("");
@@ -160,27 +169,31 @@ function dl(name,text,mime){
 }
 function wipe(){
   [K,H].forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});
-  S=null;RS=false;V="home";render();
+  S=null;RV=null;RS=false;V="home";render();
 }
 const act={
   new:start,
   resume(){V="quiz";T0=Date.now();render()},
-  home(e){e&&e.preventDefault&&e.preventDefault();if(S&&!S.done)save();RS=false;V="home";render()},
+  home(e){e&&e.preventDefault&&e.preventDefault();if(S&&!S.done)save();RS=false;RV=null;V="home";render()},
+  hist(){RV=null;V="hist";render()},
+  view(i){const r=ld(H,[])[+i];if(!r||!r.sn)return;RV=Object.assign({},r.sn,{at:r.at,d:r.d});V="result";render()},
   resetask(){RS=true;render()},
   resetno(){RS=false;render()},
   resetgo:wipe,
   dltxt(){dl("Java3級ドリル_結果_"+stamp()+".txt",buildTxt(),"text/plain;charset=utf-8")},
   dlcsv(){dl("Java3級ドリル_結果_"+stamp()+".csv",buildCsv(),"text/csv;charset=utf-8")},
-  result(){V="result";render()},
   pick(k){const id=S.ids[S.i];if(S.ans[id]!==undefined)return;S.ans[id]=S.perm[id][+k];save();render()},
   next(){
     if(S.i<S.ids.length-1){S.i++;save();render();return}
     S.done=true;save();const h=ld(H,[]);
-    h.unshift({d:new Date().toLocaleDateString("ja-JP"),s:S.ids.filter(ok).length,n:S.ids.length,t:S.acc/1000|0});sv(H,h.slice(0,10));
+    h.unshift({d:new Date().toLocaleString("ja-JP",{year:"numeric",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}),at:Date.now(),s:S.ids.filter(ok).length,n:S.ids.length,t:S.acc/1000|0,
+      sn:{ids:S.ids,perm:S.perm,ans:S.ans,acc:S.acc,done:true}});sv(H,h);
     V="result";render();
   }
 };
-document.addEventListener("click",e=>{const t=e.target.closest("[data-a]");if(!t)return;const f=act[t.dataset.a];if(f)f(t.dataset.a==="pick"?t.dataset.v:e)});
+(()=>{if(!(S&&S.done))return;const h=ld(H,[]),r=h[0];
+  if(r&&!r.sn&&r.n===S.ids.length&&r.s===S.ids.filter(i=>S.ans[i]===B[i].answer).length&&r.t===(S.acc/1000|0)){r.sn={ids:S.ids,perm:S.perm,ans:S.ans,acc:S.acc,done:true};sv(H,h)}})();
+document.addEventListener("click",e=>{const t=e.target.closest("[data-a]");if(!t)return;const f=act[t.dataset.a];if(f)f(["pick","view"].includes(t.dataset.a)?t.dataset.v:e)});
 render();
 </script>
 </body>
